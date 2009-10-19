@@ -8,10 +8,10 @@ class ReferencesController < ApplicationController
   end
   
   def create
-    @object = Neo4j::Reference.new
+    @object = Reference.new
     @object.update(params[:reference])
     flash[:notice] = 'Reference was successfully created.'
-    redirect_to(references_url)
+    redirect_to(@object)
   end
   
   def update

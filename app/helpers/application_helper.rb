@@ -54,7 +54,7 @@ module ApplicationHelper
           @link_desc = "link_desc_male_past"
         end
     end
-    xml = File.open('config/relationships.xml')
+    xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
     doc = Document.new(xml)
     @xpath_query = '//relationships/relationship[@name="' + edge.name + '"]/' + @link_desc
     @rel_desc = XPath.first(doc, @xpath_query).text
@@ -103,7 +103,7 @@ module ApplicationHelper
             target_type = "reference"
         end
     end
-    xml = File.open('config/relationships.xml')
+    xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
     doc = Document.new(xml)
     @drop_list_display = '//relationships/relationship[@subject="' + origin_type + '" and @object="' + target_type + '"]/option' # /text() will return just node values
     @drop_list_display_hash = XPath.match(doc, @drop_list_display)
@@ -228,5 +228,21 @@ module ApplicationHelper
        link_type="'+ @rel_desc +'">
      </edge>'
   end
-  
+
+  def get_display_name(object)
+    case object.class.to_s
+      when "Person"
+        @display_name = [object.first_name,object.surname].join(" ")
+      when "Organisation"
+        @display_name = object.name
+      when "Location"
+        @display_name = [object.street_number,object.street_name,object.street_type,object.suburb,object.city,object.country].join(" ")
+      when "Event"
+        @display_name = object.title
+      when "Reference"
+        @display_name = object.ref_value
+    end
+
+    return @display_name
+  end
 end

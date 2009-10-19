@@ -8,10 +8,10 @@ class PeopleController < ApplicationController
   end
   
   def create
-    @object = Neo4j::Person.new
+    @object = Person.new
     @object.update(params[:person])
     flash[:notice] = 'Person was successfully created.'
-    redirect_to(people_url)
+    redirect_to(@object)
   end
   
   def update
@@ -37,19 +37,18 @@ class PeopleController < ApplicationController
     @people = Person.all.nodes
     @locations = Location.all.nodes
     @events = Event.all.nodes
-
   end
 
   def link
     linker(params)
     redirect_to(@object)
-    flash[:notice] = [@object.first_name, @object.surname].join(" ") + " was linked to node " + @target.neo_node_id.to_s
+    flash[:notice] = [@object.first_name, @object.surname].join(" ") + " was linked to " + get_display_name(@target)
   end
   
   def unlink
     unlinker(params)
     redirect_to(@object)
-    flash[:notice] = [@object.first_name, @object.surname].join(" ") + " was unlinked from " + @target.neo_node_id.to_s
+    flash[:notice] = [@object.first_name, @object.surname].join(" ") + " was unlinked from " + get_display_name(@target)
   end
   
   def new
