@@ -31,7 +31,6 @@ module ApplicationHelper
   end
 
   def get_relationship_description(edge)
-
     case edge.start_node.class.to_s
       when "Person"
         if (edge.end_date == "" || edge.end_date > Date.today.to_s) then
@@ -54,10 +53,15 @@ module ApplicationHelper
           @link_desc = "link_desc_male_past"
         end
     end
-    xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
-    doc = Document.new(xml)
-    @xpath_query = '//relationships/relationship[@name="' + edge.name + '"]/' + @link_desc
-    @rel_desc = XPath.first(doc, @xpath_query).text
+    @@cache ||= {}
+    unless @@cache[edge.name]
+      xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
+      doc = Document.new(xml)
+      xpath_query = '//relationships/relationship[@name="' + edge.name + '"]/' + @link_desc
+      @@cache[edge.name] = XPath.first(doc, xpath_query).text
+      xml.close
+    end
+    @rel_desc = @@cache[edge.name]
 
   end
   
@@ -103,13 +107,17 @@ module ApplicationHelper
             target_type = "reference"
         end
     end
-    xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
-    doc = Document.new(xml)
-    @drop_list_display = '//relationships/relationship[@subject="' + origin_type + '" and @object="' + target_type + '"]/option' # /text() will return just node values
-    @drop_list_display_hash = XPath.match(doc, @drop_list_display)
 
-    return @drop_list_display_hash
-       
+    @@cache2 ||= {}
+    key = origin_type + target_type
+    unless @@cache2[key]
+      xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
+      doc = Document.new(xml)
+      drop_list_display = '//relationships/relationship[@subject="' + origin_type + '" and @object="' + target_type + '"]/option' # /text() will return just node values
+      @@cache2[key] = XPath.match(doc, drop_list_display)
+      xml.close
+    end
+    return @@cache2[key]
   end
   
  # generic traverser to 2 levels deep for entire link set - can easily replace with filtered search like /views/shared/_filtered_target.html.haml
