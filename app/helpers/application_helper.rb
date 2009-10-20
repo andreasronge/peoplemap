@@ -4,15 +4,15 @@ module ApplicationHelper
   def get_top_menu_style(controller_type)
     case controller_type.to_s
       when "PeopleController"
-        @people_style = "color: #f1c130"
+        @people_style = "color: #f1c130;"
       when "OrganisationsController"
-        @org_style = "color: #f1c130"
+        @org_style = "color: #f1c130;"
       when "EventsController"
-        @event_style = "color: #f1c130"
+        @event_style = "color: #f1c130;"
       when "LocationsController"
-        @location_style = "color: #f1c130"
+        @location_style = "color: #f1c130;"
       when "ReferencesController"
-        @reference_style = "color: #f1c130"
+        @reference_style = "color: #f1c130;"
     end
   end
 
@@ -31,96 +31,54 @@ module ApplicationHelper
   end
 
   def get_relationship_description(edge)
-    case edge.start_node.class.to_s
-      when "Person"
-        if (edge.end_date == "" || edge.end_date > Date.today.to_s) then
-          if (edge.start_node.sex == "Male") then
-            @link_desc = "link_desc_male"
-          else
-            @link_desc = "link_desc_female"
-          end
-        else # for past relationships
-          if (edge.start_node.sex == "Male") then
-            @link_desc = "link_desc_male_past"
-          else
-            @link_desc = "link_desc_female_past"
-          end
-        end
-      else
-        if (edge.end_date == "" || edge.end_date > Date.today.to_s) then
-          @link_desc = "link_desc_male"
-        else
-          @link_desc = "link_desc_male_past"
-        end
+    if (edge.end_date == "" || edge.end_date > Date.today.to_s) then
+      @link_desc = "link_desc"
+    else # for past relationships
+      @link_desc = "link_desc_past"
     end
-    @@cache ||= {}
-    unless @@cache[edge.name]
-      xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
-      doc = Document.new(xml)
-      xpath_query = '//relationships/relationship[@name="' + edge.name + '"]/' + @link_desc
-      @@cache[edge.name] = XPath.first(doc, xpath_query).text
-      xml.close
-    end
-    @rel_desc = @@cache[edge.name]
-
-  end
-  
-  def get_type_list(origin_type, target_type)
-    case # this annoying set of nested case statements switch the order for the purposes of matching against the rel types in relationships.xml
-      when (origin_type == "organisation" and target_type == "person")
-        origin_type = "person" 
-        target_type = "organisation"
-      when origin_type == "event"
-        case target_type
-          when "person"
-            origin_type = "person" 
-            target_type = "event"
-          when "organisation"
-            origin_type = "organisation"
-            target_type = "event"
-        end
-      when origin_type == "location"
-        case target_type
-          when "person"
-            origin_type = "person" 
-            target_type = "location"
-          when "organisation"
-            origin_type = "organisation" 
-            target_type = "location"
-          when "event"
-            origin_type = "event" 
-            target_type = "location"
-        end
-      when origin_type == "reference"
-        case target_type
-          when "person"
-            origin_type = "person" 
-            target_type = "reference"
-          when "organisation"
-            origin_type = "organisation" 
-            target_type = "reference"
-          when "event"
-            origin_type = "event" 
-            target_type = "reference"
-          when "location"
-            origin_type = "location" 
-            target_type = "reference"
-        end
-    end
-
     @@cache2 ||= {}
-    key = origin_type + target_type
+    edge_name = edge.name
+    key = @link_desc + edge_name
     unless @@cache2[key]
       xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
       doc = Document.new(xml)
-      drop_list_display = '//relationships/relationship[@subject="' + origin_type + '" and @object="' + target_type + '"]/option' # /text() will return just node values
-      @@cache2[key] = XPath.match(doc, drop_list_display)
+      xpath_query = '//relationships/relationship[@name="' + edge_name + '"]/' + @link_desc
+      @@cache2[key] = XPath.first(doc, xpath_query).text
       xml.close
     end
-    return @@cache2[key]
+    @rel_desc = @@cache2[key]
   end
   
- # generic traverser to 2 levels deep for entire link set - can easily replace with filtered search like /views/shared/_filtered_target.html.haml
+  def get_type_list(origin_type, target_type, origin_gender)
+    @@cache ||= {}
+    key = "#{origin_type}:#{target_type}:#{origin_gender}"
+    unless @@cache[key]
+      xml = File.open("#{RAILS_ROOT}/config/relationships.xml")
+      doc = Document.new(xml)
+      case origin_gender
+        when "Male"
+          @gender_modifier = ' and (@gender_specific="male" or @gender_specific="neutral")'
+        when "Female"
+          @gender_modifier = ' and (@gender_specific="female" or @gender_specific="neutral")'
+        else
+          @gender_modifier = ''
+      end
+      drop_list_display = '//relationships/relationship[@predicate="' + origin_type + '_to_' + target_type + '"'+ @gender_modifier +']/option' # /text() will return just node values
+      @@cache[key] = XPath.match(doc, drop_list_display)
+      xml.close
+    end
+    @@cache[key]
+  end
+
+  def get_gender(object)
+    if object.class.to_s == "Person" then
+      if (object.sex.nil?) then "neutral" else object.sex end
+    else
+      "neutral"
+    end
+  end
+
+ # generic traverser to 2 levels deep for entire link set - can easily replace with filtered traversals using both(:link_type)
 
   def convert_to_graphml(object)
 
@@ -176,6 +134,7 @@ module ApplicationHelper
           <data key="name">' + [node.first_name, node.surname].join(" ") + '</data>
           <data key="first_name">' + (if(node.first_name=='') then 'EMPTY' else node.first_name end) + '</data>
           <data key="surname">' + (if(node.surname=='') then 'EMPTY' else node.surname end) + '</data>
+          <data key="sex">' + (if(node.sex=='') then 'EMPTY' else node.sex end) + '</data>
           <data key="date_of_birth">' + (if(node.date_of_birth=='') then 'EMPTY' else node.date_of_birth end) + '</data>
           <data key="title">' + (if(node.title=='') then 'EMPTY' else node.title end) + '</data>
           <data key="notes">' + (if(node.notes=='') then 'EMPTY' else node.notes end) + '</data> 
